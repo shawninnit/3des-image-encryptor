@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>🔐 3DES Image Encryptor / Decryptor</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: 'Poppins', sans-serif;
+      background: linear-gradient(-45deg,
+        #ff6a00, #fcd800, #00c853, #00bcd4,
+        #3f51b5, #673ab7, #e91e63, #ff5722);
+      background-size: 300% 300%;
+      animation: rainbowBG 20s ease infinite;
+      min-height: 100vh;
+      overflow-y: auto;
+      padding: 40px 20px;
+    }
+
+    @keyframes rainbowBG {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    .container {
+      background: #ffffffee;
+      border-radius: 20px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.2);
+      max-width: 500px;
+      width: 100%;
+      margin: auto;
+      padding: 30px;
+      color: #333;
+      text-align: center;
+    }
+
+    h1 {
+      font-weight: 600;
+      margin-bottom: 5px;
+      color: #3f51b5;
+    }
+
+    .subtitle {
+      font-size: 0.9rem;
+      color: #555;
+      margin-top: 0;
+      margin-bottom: 20px;
+    }
+
+    label.file-label {
+      display: inline-block;
+      background: linear-gradient(90deg, #00c6ff, #0072ff);
+      color: white;
+      padding: 12px 25px;
+      border-radius: 30px;
+      cursor: pointer;
+      font-weight: 600;
+      margin: 15px 0 10px;
+      transition: background 0.3s ease;
+      box-shadow: 0 4px 15px rgba(0, 114, 255, 0.5);
+    }
+
+    label.file-label:hover {
+      background: linear-gradient(90deg, #0072ff, #00c6ff);
+      box-shadow: 0 6px 20px rgba(0, 114, 255, 0.7);
+    }
+
+    input[type="file"] {
+      display: none;
+    }
+
+    input[type="password"] {
+      width: 100%;
+      padding: 12px 18px;
+      font-size: 1rem;
+      border: 2px solid #ccc;
+      border-radius: 30px;
+      margin: 10px 0 20px;
+      outline: none;
+      transition: border 0.3s;
+    }
+
+    input[type="password"]:focus {
+      border-color: #00c6ff;
+      box-shadow: 0 0 5px #00c6ff;
+    }
+
+    button {
+      background: linear-gradient(90deg, #00c6ff, #0072ff);
+      border: none;
+      color: white;
+      font-weight: 600;
+      font-size: 1rem;
+      padding: 12px 30px;
+      border-radius: 30px;
+      cursor: pointer;
+      box-shadow: 0 6px 20px rgba(0,114,255,0.6);
+      transition: background 0.3s ease, transform 0.2s ease;
+      margin-bottom: 15px;
+    }
+
+    button:hover {
+      background: linear-gradient(90deg, #0072ff, #00c6ff);
+      transform: translateY(-2px);
+    }
+
+    #status {
+      font-weight: bold;
+      font-size: 1rem;
+      min-height: 24px;
+      margin-top: 10px;
+    }
+
+    .preview {
+      max-width: 100%;
+      margin-top: 15px;
+      border-radius: 10px;
+      box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+      display: none;
+    }
+
+    hr {
+      border: none;
+      border-top: 1px solid #ddd;
+      margin: 30px 0;
+    }
+
+    @media (max-width: 520px) {
+      .container {
+        padding: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>🔐 3DES IMAGE ENCRYPTOR 🔐</h2>
+    <p class="subtitle">By Dwip Sahajee 🧠✨🎨</p>
+
+    <!-- Encrypt Section -->
+    <label class="file-label" for="fileInput">📤 Choose Image to Encrypt</label>
+    <input type="file" id="fileInput" accept="image/*" />
+    <br />
+    <input type="password" id="encryptPassphrase" placeholder="🔑 Enter passphrase for encryption" />
+    <button onclick="encryptImage()">🔒 Encrypt Image & Download 📁</button>
+    <img id="originalPreview" class="preview" alt="Original Image Preview" />
+
+    <hr />
+
+    <!-- Decrypt Section -->
+    <label class="file-label" for="encFileInput">📥 Choose Encrypted File to Decrypt</label>
+    <input type="file" id="encFileInput" accept=".txt" />
+    <br />
+    <input type="password" id="decryptPassphrase" placeholder="🔓 Enter passphrase for decryption" />
+    <button onclick="decryptImage()">🔓 Decrypt File & Download 📂</button>
+    <img id="decryptedPreview" class="preview" alt="Decrypted Image Preview" />
+
+    <div id="status"></div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+  <script>
+    const status = document.getElementById('status');
+    const originalPreview = document.getElementById('originalPreview');
+    const decryptedPreview = document.getElementById('decryptedPreview');
+
+    function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function base64ToBlob(base64, mime) {
+      const byteChars = atob(base64);
+      const byteArray = new Uint8Array(byteChars.length);
+      for (let i = 0; i < byteChars.length; i++) {
+        byteArray[i] = byteChars.charCodeAt(i);
+      }
+      return new Blob([byteArray], { type: mime });
+    }
+
+    function downloadBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    async function encryptImage() {
+      const file = document.getElementById('fileInput').files[0];
+      const pass = document.getElementById('encryptPassphrase').value;
+
+      if (!file || !pass) {
+        status.style.color = 'red';
+        status.textContent = '⚠️ Please select an image and enter a passphrase.';
+        return;
+      }
+
+      status.style.color = 'black';
+      status.textContent = 'Encrypting... 🔄';
+
+      try {
+        const base64 = await fileToBase64(file);
+        originalPreview.src = URL.createObjectURL(file);
+        originalPreview.style.display = "block";
+
+        const encrypted = CryptoJS.TripleDES.encrypt(base64, pass).toString();
+        const blob = new Blob([encrypted], { type: 'text/plain' });
+        downloadBlob(blob, file.name + '.encrypted.txt');
+
+        status.style.color = 'green';
+        status.textContent = '✅ Encryption successful!';
+      } catch (err) {
+        status.style.color = 'red';
+        status.textContent = '❌ Encryption failed: ' + err.message;
+      }
+    }
+
+    async function decryptImage() {
+      const file = document.getElementById('encFileInput').files[0];
+      const pass = document.getElementById('decryptPassphrase').value;
+
+      if (!file || !pass) {
+        status.style.color = 'red';
+        status.textContent = '⚠️ Please select an encrypted file and enter passphrase.';
+        return;
+      }
+
+      status.style.color = 'black';
+      status.textContent = 'Decrypting... 🔄';
+
+      try {
+        const encryptedText = await file.text();
+        const decrypted = CryptoJS.TripleDES.decrypt(encryptedText, pass);
+        const base64 = decrypted.toString(CryptoJS.enc.Utf8);
+
+        if (!base64) throw new Error('Wrong passphrase or corrupted file.');
+
+        const blob = base64ToBlob(base64, 'image/*');
+        decryptedPreview.src = URL.createObjectURL(blob);
+        decryptedPreview.style.display = "block";
+
+        downloadBlob(blob, file.name.replace('.encrypted.txt', '_decrypted.png'));
+        status.style.color = 'green';
+        status.textContent = '✅ Decryption successful!';
+      } catch (err) {
+        status.style.color = 'red';
+        status.textContent = '❌ Decryption failed: ' + err.message;
+      }
+    }
+  </script>
+</body>
+</html>
